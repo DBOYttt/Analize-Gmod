@@ -1,0 +1,6 @@
+node_modules/
+package-lock.json
+
+gmodpl/ecosystem.config.js
+.vscode/settings.json
+.env

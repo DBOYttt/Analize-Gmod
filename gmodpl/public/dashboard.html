@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GMod Polska Server Scanner - Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+        .sections {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .section h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        .server-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .server-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .server-status {
+            padding: 3px 8px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .status-online { background: #4CAF50; color: white; }
+        .status-offline { background: #f44336; color: white; }
+        .last-update {
+            text-align: center;
+            color: white;
+            margin-top: 20px;
+            font-size: 0.9em;
+        }
+        .loading {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+        }
+        @media (max-width: 768px) {
+            .sections { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎮 GMod Polska Server Scanner</h1>
+            <p>Real-time monitoring of Polish Garry's Mod servers</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="total-servers">-</div>
+                <div class="stat-label">Total Servers</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="active-servers">-</div>
+                <div class="stat-label">Active Servers</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="polish-servers">-</div>
+                <div class="stat-label">Polish Servers</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="total-players">-</div>
+                <div class="stat-label">Database Records</div>
+            </div>
+        </div>
+
+        <div class="sections">
+            <div class="section">
+                <h3>📊 Recent Server Activity</h3>
+                <div id="recent-servers" class="server-list">
+                    <div class="loading">Loading server data...</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>🇵🇱 Polish Servers</h3>
+                <div id="polish-servers-list" class="server-list">
+                    <div class="loading">Loading Polish servers...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="last-update">
+            Last updated: <span id="last-update">Never</span>
+        </div>
+    </div>
+
+    <script>
+        // Update dashboard data
+        async function updateDashboard() {
+            try {
+                const response = await fetch('/dashboard/api/stats');
+                const data = await response.json();
+                
+                // Update statistics
+                document.getElementById('total-servers').textContent = data.serverStats.total_servers;
+                document.getElementById('active-servers').textContent = data.serverStats.active_servers;
+                document.getElementById('polish-servers').textContent = data.serverStats.polish_servers;
+                document.getElementById('total-players').textContent = data.tableStats.players;
+                
+                // Update recent servers
+                const recentContainer = document.getElementById('recent-servers');
+                recentContainer.innerHTML = data.recentServers.map(server => `
+                    <div class="server-item">
+                        <div>
+                            <strong>${server.name || 'Unknown'}</strong><br>
+                            <small>${server.ip}:${server.port} - ${server.map || 'N/A'}</small>
+                        </div>
+                        <span class="server-status ${server.is_active ? 'status-online' : 'status-offline'}">
+                            ${server.is_active ? 'ONLINE' : 'OFFLINE'}
+                        </span>
+                    </div>
+                `).join('');
+                
+                document.getElementById('last-update').textContent = new Date().toLocaleString();
+                
+            } catch (error) {
+                console.error('Failed to update dashboard:', error);
+            }
+        }
+
+        // Update Polish servers
+        async function updatePolishServers() {
+            try {
+                const response = await fetch('/dashboard/api/polish-servers');
+                const servers = await response.json();
+                
+                const container = document.getElementById('polish-servers-list');
+                if (servers.length === 0) {
+                    container.innerHTML = '<div class="loading">No Polish servers found yet</div>';
+                } else {
+                    container.innerHTML = servers.map(server => `
+                        <div class="server-item">
+                            <div>
+                                <strong>${server.name || 'Unknown'}</strong><br>
+                                <small>${server.ip}:${server.port} - ${server.country || 'N/A'}</small>
+                            </div>
+                            <span class="server-status ${server.is_active ? 'status-online' : 'status-offline'}">
+                                ${server.is_active ? 'ONLINE' : 'OFFLINE'}
+                            </span>
+                        </div>
+                    `).join('');  
+                }
+            } catch (error) {
+                console.error('Failed to update Polish servers:', error);
+            }
+        }
+
+        // Initialize dashboard
+        updateDashboard();
+        updatePolishServers();
+        
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            updateDashboard();
+            updatePolishServers();
+        }, 30000);
+    </script>
+</body>
+</html>
